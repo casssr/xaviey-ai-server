@@ -9,7 +9,7 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
+const GEMINI_API_KEY = process.env.GEMINI_API_KEY; // Your Gemini API key
 const STORE_PRODUCTS_URL = process.env.STORE_PRODUCTS_URL;
 
 // Helper to get products from WooCommerce Store API
@@ -24,9 +24,9 @@ async function fetchProducts() {
   }
 }
 
-// Root route to show server status
+// Root route
 app.get("/", (req, res) => {
-  res.send("✅ Xaviey.ai server is running! Use /api/xaviey to chat with the AI.");
+  res.send("✅ Xaviey.ai server is running! Use /api/xaviey to chat with Gemini AI.");
 });
 
 // AI route
@@ -39,7 +39,7 @@ app.post("/api/xaviey", async (req, res) => {
 
     const systemPrompt = `
 You are Xaviey.ai, a Gen Z fashion assistant for Xaviey.com.ng.
-You help users pick stylish outfits and accessories from the WooCommerce product list.
+Help users pick stylish outfits and accessories from the WooCommerce product list.
 Reply in short, fun, conversational Gen Z tone.
 When recommending products, only include items that exist in the products JSON.
 Return response as JSON with fields:
@@ -51,29 +51,27 @@ Return response as JSON with fields:
 }
 `;
 
-    const chatBody = {
-      model: "gpt-3.5-turbo",
-      messages: [
-        { role: "system", content: systemPrompt },
-        { role: "user", content: message },
-      ],
+    // Gemini request body
+    const geminiBody = {
+      model: "gemini-2.0-flash-v1",
+      prompt: `${systemPrompt}\nUser: ${message}\nXaviey.ai:`,
+      max_output_tokens: 500,
     };
 
-    const aiRes = await fetch("https://api.openai.com/v1/chat/completions", {
+    const aiRes = await fetch("https://api.generativeai.googleapis.com/v1beta2/models/gemini-2.0-flash-v1:generateText", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        Authorization: `Bearer ${OPENAI_API_KEY}`,
+        "Authorization": `Bearer ${GEMINI_API_KEY}`,
       },
-      body: JSON.stringify(chatBody),
+      body: JSON.stringify(geminiBody),
     });
 
     const aiData = await aiRes.json();
 
-    // Prevent crash if API fails
-    let aiMessage = "Yo fam, I’m lost 😅"; 
-    if (aiData?.choices?.length > 0 && aiData.choices[0].message?.content) {
-      aiMessage = aiData.choices[0].message.content;
+    let aiMessage = "Yo fam, I’m lost 😅";
+    if (aiData?.candidates?.length > 0 && aiData.candidates[0].content) {
+      aiMessage = aiData.candidates[0].content;
     }
 
     let replyObj;
@@ -107,4 +105,3 @@ Return response as JSON with fields:
 
 const PORT = process.env.PORT || 8080;
 app.listen(PORT, () => console.log(`✅ Xaviey.ai API running on port ${PORT}`));
-
