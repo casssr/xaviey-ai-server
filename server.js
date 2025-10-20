@@ -76,4 +76,9 @@ Return response as JSON with fields:
 });
 
 const PORT = process.env.PORT || 8080;
+// Root route to show server status
+app.get("/", (req, res) => {
+  res.send("✅ Xaviey.ai server is running! Use /api/xaviey to chat with the AI.");
+});
 app.listen(PORT, () => console.log(`✅ Xaviey.ai API running on port ${PORT}`));
+
