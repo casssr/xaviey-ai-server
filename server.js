@@ -24,20 +24,22 @@ async function fetchProducts() {
   }
 }
 
+// AI route
 app.post("/api/xaviey", async (req, res) => {
   const { message } = req.body;
+  if (!message) return res.json({ reply: "Send me a message!", products: [] });
 
   try {
     const products = await fetchProducts();
 
     const systemPrompt = `
-You are Xaviey.ai, a Gen Z fashion assistant.
-You help users pick stylish outfits from the product list.
-Reply in a fun, short, conversational tone.
-When recommending products, only include items that exist in the store JSON.
-Return response as JSON:
+You are Xaviey.ai, a Gen Z fashion assistant for Xaviey.com.ng.
+You help users pick stylish outfits and accessories from the WooCommerce product list.
+Reply in short, fun, conversational Gen Z tone.
+When recommending products, only include items that exist in the products JSON.
+Return response as JSON with fields:
 {
-  "reply": "your reply to the user",
+  "reply": "string",
   "products": [
     {"name":"", "image":"", "price":"", "link":""}
   ]
@@ -62,40 +64,36 @@ Return response as JSON:
     });
 
     const aiData = await aiRes.json();
-    let replyObj;
 
+    let replyObj;
     try {
       replyObj = JSON.parse(aiData.choices[0].message.content);
     } catch {
-      // fallback
+      // fallback if AI response is not valid JSON
       replyObj = { reply: aiData.choices[0].message.content || "Yo fam, I’m lost 😅", products: [] };
     }
 
-    // Optional: ensure product links are valid
+    // Filter AI products against actual store products
     if (replyObj.products && replyObj.products.length) {
       replyObj.products = replyObj.products.map(p => {
         const match = products.find(prod => prod.name.toLowerCase() === p.name.toLowerCase());
-        return match ? {
-          name: match.name,
-          image: match.images?.[0]?.src || "",
-          price: match.prices?.price || match.price_html || "",
-          link: match.permalink || ""
-        } : null;
+        return match
+          ? {
+              name: match.name,
+              image: match.images?.[0]?.src || "",
+              price: match.prices?.price || match.price_html || "",
+              link: match.permalink || "",
+            }
+          : null;
       }).filter(Boolean);
     }
 
     res.json(replyObj);
   } catch (err) {
     console.error(err);
-    res.status(500).json({ reply: "Something went wrong", products: [] });
+    res.status(500).json({ reply: "Server error, try again later 😅", products: [] });
   }
 });
 
 const PORT = process.env.PORT || 8080;
-// Root route to show server status
-app.get("/", (req, res) => {
-  res.send("✅ Xaviey.ai server is running! Use /api/xaviey to chat with the AI.");
-});
 app.listen(PORT, () => console.log(`✅ Xaviey.ai API running on port ${PORT}`));
-
-
