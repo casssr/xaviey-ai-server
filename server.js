@@ -9,27 +9,27 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-const GEMINI_API_KEY = process.env.GEMINI_API_KEY; // Your Gemini API key
+const GEMINI_API_KEY = process.env.GEMINI_API_KEY; // Gemini API key
 const STORE_PRODUCTS_URL = process.env.STORE_PRODUCTS_URL;
 
-// Helper to get products from WooCommerce Store API
+// Helper: fetch products from WooCommerce
 async function fetchProducts() {
   try {
     const res = await fetch(STORE_PRODUCTS_URL);
     if (!res.ok) throw new Error("Failed to fetch products");
     return await res.json();
-  } catch (e) {
-    console.error("Product fetch error:", e);
+  } catch (err) {
+    console.error("Product fetch error:", err);
     return [];
   }
 }
 
 // Root route
 app.get("/", (req, res) => {
-  res.send("✅ Xaviey.ai server is running! Use /api/xaviey to chat with Gemini AI.");
+  res.send("✅ Xaviey.ai server is running! POST to /api/xaviey to chat with Gemini AI.");
 });
 
-// AI route
+// AI chat route
 app.post("/api/xaviey", async (req, res) => {
   const { message } = req.body;
   if (!message) return res.json({ reply: "Send me a message!", products: [] });
@@ -51,21 +51,25 @@ Return response as JSON with fields:
 }
 `;
 
-    // Gemini request body
+    // Gemini request
     const geminiBody = {
       model: "gemini-2.0-flash-v1",
       prompt: `${systemPrompt}\nUser: ${message}\nXaviey.ai:`,
-      max_output_tokens: 500,
+      temperature: 0.7,
+      max_output_tokens: 512
     };
 
-    const aiRes = await fetch("https://api.generativeai.googleapis.com/v1beta2/models/gemini-2.0-flash-v1:generateText", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Authorization": `Bearer ${GEMINI_API_KEY}`,
-      },
-      body: JSON.stringify(geminiBody),
-    });
+    const aiRes = await fetch(
+      "https://generativelanguage.googleapis.com/v1beta2/models/gemini-2.0-flash-v1:generateText",
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${GEMINI_API_KEY}`,
+        },
+        body: JSON.stringify(geminiBody),
+      }
+    );
 
     const aiData = await aiRes.json();
 
@@ -83,17 +87,21 @@ Return response as JSON with fields:
 
     // Filter AI products against actual store products
     if (replyObj.products && replyObj.products.length) {
-      replyObj.products = replyObj.products.map(p => {
-        const match = products.find(prod => prod.name.toLowerCase() === p.name.toLowerCase());
-        return match
-          ? {
-              name: match.name,
-              image: match.images?.[0]?.src || "",
-              price: match.prices?.price || match.price_html || "",
-              link: match.permalink || "",
-            }
-          : null;
-      }).filter(Boolean);
+      replyObj.products = replyObj.products
+        .map(p => {
+          const match = products.find(
+            prod => prod.name.toLowerCase() === p.name.toLowerCase()
+          );
+          return match
+            ? {
+                name: match.name,
+                image: match.images?.[0]?.src || "",
+                price: match.prices?.price || match.price_html || "",
+                link: match.permalink || "",
+              }
+            : null;
+        })
+        .filter(Boolean);
     }
 
     res.json(replyObj);
