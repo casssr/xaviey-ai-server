@@ -52,7 +52,7 @@ Return response as JSON with fields:
 `;
 
     const chatBody = {
-      model: "gpt-4o-mini",
+      model: "gpt-3.5-turbo",
       messages: [
         { role: "system", content: systemPrompt },
         { role: "user", content: message },
@@ -107,3 +107,4 @@ Return response as JSON with fields:
 
 const PORT = process.env.PORT || 8080;
 app.listen(PORT, () => console.log(`✅ Xaviey.ai API running on port ${PORT}`));
+
