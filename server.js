@@ -24,6 +24,11 @@ async function fetchProducts() {
   }
 }
 
+// Root route to show server status
+app.get("/", (req, res) => {
+  res.send("✅ Xaviey.ai server is running! Use /api/xaviey to chat with the AI.");
+});
+
 // AI route
 app.post("/api/xaviey", async (req, res) => {
   const { message } = req.body;
@@ -65,12 +70,17 @@ Return response as JSON with fields:
 
     const aiData = await aiRes.json();
 
+    // Prevent crash if API fails
+    let aiMessage = "Yo fam, I’m lost 😅"; 
+    if (aiData?.choices?.length > 0 && aiData.choices[0].message?.content) {
+      aiMessage = aiData.choices[0].message.content;
+    }
+
     let replyObj;
     try {
-      replyObj = JSON.parse(aiData.choices[0].message.content);
+      replyObj = JSON.parse(aiMessage);
     } catch {
-      // fallback if AI response is not valid JSON
-      replyObj = { reply: aiData.choices[0].message.content || "Yo fam, I’m lost 😅", products: [] };
+      replyObj = { reply: aiMessage, products: [] };
     }
 
     // Filter AI products against actual store products
