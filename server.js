@@ -1,3 +1,13 @@
+import express from "express";
+import fetch from "node-fetch";
+import cors from "cors";
+import dotenv from "dotenv";
+dotenv.config();
+
+const app = express();
+app.use(cors());
+app.use(express.json());
+
 app.post("/api/xaviey", async (req, res) => {
   const { message } = req.body;
   if (!message) return res.json({ reply: "Send me a message!", products: [] });
@@ -79,3 +89,4 @@ Products JSON: ${JSON.stringify(products.slice(0, 10))}
       .json({ reply: "Server error, try again later 😅", products: [] });
   }
 });
+
