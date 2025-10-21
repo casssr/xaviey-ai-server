@@ -31,7 +31,7 @@ app.get("/", (req, res) => {
 // ✅ Main AI route
 app.post("/api/xaviey", async (req, res) => {
   const { message } = req.body;
-  if (!message) return res.json({ reply: "Send me a message!", products: [] });
+  if (!message) return res.send(replyText);
 
   try {
     const products = await fetchProducts();
@@ -127,3 +127,4 @@ const PORT = process.env.PORT || 8080;
 app.listen(PORT, () =>
   console.log(`✅ Xaviey.ai backend running on port ${PORT}`)
 );
+
