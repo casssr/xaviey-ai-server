@@ -1,35 +1,3 @@
-// server.js
-import express from "express";
-import fetch from "node-fetch";
-import cors from "cors";
-import dotenv from "dotenv";
-dotenv.config();
-
-const app = express();
-app.use(cors());
-app.use(express.json());
-
-const GEMINI_API_KEY = process.env.GEMINI_API_KEY; // Gemini API key
-const STORE_PRODUCTS_URL = process.env.STORE_PRODUCTS_URL;
-
-// Helper: fetch products from WooCommerce
-async function fetchProducts() {
-  try {
-    const res = await fetch(STORE_PRODUCTS_URL);
-    if (!res.ok) throw new Error("Failed to fetch products");
-    return await res.json();
-  } catch (err) {
-    console.error("Product fetch error:", err);
-    return [];
-  }
-}
-
-// Root route
-app.get("/", (req, res) => {
-  res.send("✅ Xaviey.ai server is running! POST to /api/xaviey to chat with Gemini AI.");
-});
-
-// AI chat route
 app.post("/api/xaviey", async (req, res) => {
   const { message } = req.body;
   if (!message) return res.json({ reply: "Send me a message!", products: [] });
@@ -49,34 +17,32 @@ Return response as JSON with fields:
     {"name":"", "image":"", "price":"", "link":""}
   ]
 }
+Products JSON: ${JSON.stringify(products.slice(0, 10))}
 `;
 
-    // Gemini request
-    const geminiBody = {
-      model: "gemini-2.0-flash-v1",
-      prompt: `${systemPrompt}\nUser: ${message}\nXaviey.ai:`,
-      temperature: 0.7,
-      max_output_tokens: 512
-    };
-
-    const aiRes = await fetch(
-      "https://generativelanguage.googleapis.com/v1beta2/models/gemini-2.0-flash-v1:generateText",
+    // ✅ Gemini 2.0 Flash API request
+    const response = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_API_KEY}`,
       {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${GEMINI_API_KEY}`,
-        },
-        body: JSON.stringify(geminiBody),
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          contents: [
+            {
+              role: "user",
+              parts: [{ text: `${systemPrompt}\nUser: ${message}\nXaviey.ai:` }],
+            },
+          ],
+        }),
       }
     );
 
-    const aiData = await aiRes.json();
+    const data = await response.json();
 
-    let aiMessage = "Yo fam, I’m lost 😅";
-    if (aiData?.candidates?.length > 0 && aiData.candidates[0].content) {
-      aiMessage = aiData.candidates[0].content;
-    }
+    // ✅ Extract the AI’s text output safely
+    const aiMessage =
+      data?.candidates?.[0]?.content?.parts?.[0]?.text ||
+      "Yo fam, I’m lost 😅";
 
     let replyObj;
     try {
@@ -85,12 +51,13 @@ Return response as JSON with fields:
       replyObj = { reply: aiMessage, products: [] };
     }
 
-    // Filter AI products against actual store products
+    // ✅ Match products to WooCommerce
     if (replyObj.products && replyObj.products.length) {
       replyObj.products = replyObj.products
-        .map(p => {
+        .map((p) => {
           const match = products.find(
-            prod => prod.name.toLowerCase() === p.name.toLowerCase()
+            (prod) =>
+              prod.name.toLowerCase() === p.name.toLowerCase()
           );
           return match
             ? {
@@ -106,10 +73,9 @@ Return response as JSON with fields:
 
     res.json(replyObj);
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ reply: "Server error, try again later 😅", products: [] });
+    console.error("AI error:", err);
+    res
+      .status(500)
+      .json({ reply: "Server error, try again later 😅", products: [] });
   }
 });
-
-const PORT = process.env.PORT || 8080;
-app.listen(PORT, () => console.log(`✅ Xaviey.ai API running on port ${PORT}`));
