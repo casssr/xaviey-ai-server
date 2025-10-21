@@ -23,9 +23,9 @@ async function fetchProducts() {
   }
 }
 
-// ✅ Root route (for Render status check)
+// ✅ Root route
 app.get("/", (req, res) => {
-  res.send("✅ Xaviey.ai server is running! POST to /api/xaviey to chat with Gemini AI.");
+  res.send("✅ Xaviey.ai server is live! POST to /api/xaviey to chat with Gemini AI.");
 });
 
 // ✅ Main AI route
@@ -37,20 +37,21 @@ app.post("/api/xaviey", async (req, res) => {
     const products = await fetchProducts();
 
     const systemPrompt = `
-You are Xaviey.ai, a Gen Z fashion assistant for Xaviey.com.ng.
-Help users pick stylish outfits and accessories from the WooCommerce product list.
-Reply in short, fun, conversational Gen Z tone.
-When recommending products, only include items that exist in the products JSON.
-Return response as JSON with fields:
-{
-  "reply": "string",
-  "products": [
-    {"name":"", "image":"", "price":"", "link":""}
-  ]
-}
-Products JSON: ${JSON.stringify(products.slice(0, 10))}
+You are Xaviey.ai — a Gen Z personal fashion assistant for Xaviey.com.ng 🛍️.
+You talk casually and fun, like a cool stylist helping someone pick outfits.
+You DO NOT return raw JSON, code blocks, or curly braces in your message.
+Just reply naturally like a chat message.
+
+If the user is asking for product suggestions (like hoodies, anime, sneakers, etc.):
+- Respond naturally first (e.g. "Bet! I got some fire hoodies 🔥")
+- Then include up to 5 products that match their vibe, in your reasoning.
+- The backend will handle sending them properly, so don’t return any JSON text.
+
+Products list (for your reference only):
+${JSON.stringify(products.slice(0, 10))}
 `;
 
+    // Send the message to Gemini
     const response = await fetch(
       `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_API_KEY}`,
       {
@@ -68,24 +69,33 @@ Products JSON: ${JSON.stringify(products.slice(0, 10))}
     );
 
     const data = await response.json();
-
     const aiMessage =
       data?.candidates?.[0]?.content?.parts?.[0]?.text ||
-      "Yo fam, I’m lost 😅";
+      "Yo fam, something’s off 😅";
 
-    let replyObj;
-    try {
-      replyObj = JSON.parse(aiMessage);
-    } catch {
-      replyObj = { reply: aiMessage, products: [] };
+    // 🧠 Check if the AI message looks like JSON or a normal chat
+    let replyText = aiMessage;
+    let productList = [];
+
+    // If the AI somehow returned JSON (rare), parse it safely
+    if (aiMessage.trim().startsWith("{")) {
+      try {
+        const parsed = JSON.parse(aiMessage);
+        replyText = parsed.reply || aiMessage;
+        productList = parsed.products || [];
+      } catch {
+        replyText = aiMessage;
+      }
     }
 
-    if (replyObj.products && replyObj.products.length) {
-      replyObj.products = replyObj.products
+    // ✅ Match AI-mentioned products with real store products (for cards)
+    if (productList.length) {
+      productList = productList
         .map((p) => {
           const match = products.find(
             (prod) =>
-              prod.name.toLowerCase() === p.name.toLowerCase()
+              prod.name.toLowerCase().includes(p.name.toLowerCase()) ||
+              p.name.toLowerCase().includes(prod.name.toLowerCase())
           );
           return match
             ? {
@@ -99,7 +109,11 @@ Products JSON: ${JSON.stringify(products.slice(0, 10))}
         .filter(Boolean);
     }
 
-    res.json(replyObj);
+    // ✅ Send back a clean object
+    res.json({
+      reply: replyText,
+      products: productList,
+    });
   } catch (err) {
     console.error("AI error:", err);
     res
@@ -110,4 +124,6 @@ Products JSON: ${JSON.stringify(products.slice(0, 10))}
 
 // ✅ Start server
 const PORT = process.env.PORT || 8080;
-app.listen(PORT, () => console.log(`✅ Xaviey.ai API running on port ${PORT}`));
+app.listen(PORT, () =>
+  console.log(`✅ Xaviey.ai backend running on port ${PORT}`)
+);
