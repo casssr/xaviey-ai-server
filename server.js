@@ -8,6 +8,27 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
+const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
+const STORE_PRODUCTS_URL = process.env.STORE_PRODUCTS_URL;
+
+// ✅ Fetch products from your WooCommerce store
+async function fetchProducts() {
+  try {
+    const res = await fetch(STORE_PRODUCTS_URL);
+    if (!res.ok) throw new Error("Failed to fetch products");
+    return await res.json();
+  } catch (err) {
+    console.error("Product fetch error:", err);
+    return [];
+  }
+}
+
+// ✅ Root route (for Render status check)
+app.get("/", (req, res) => {
+  res.send("✅ Xaviey.ai server is running! POST to /api/xaviey to chat with Gemini AI.");
+});
+
+// ✅ Main AI route
 app.post("/api/xaviey", async (req, res) => {
   const { message } = req.body;
   if (!message) return res.json({ reply: "Send me a message!", products: [] });
@@ -30,7 +51,6 @@ Return response as JSON with fields:
 Products JSON: ${JSON.stringify(products.slice(0, 10))}
 `;
 
-    // ✅ Gemini 2.0 Flash API request
     const response = await fetch(
       `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_API_KEY}`,
       {
@@ -49,7 +69,6 @@ Products JSON: ${JSON.stringify(products.slice(0, 10))}
 
     const data = await response.json();
 
-    // ✅ Extract the AI’s text output safely
     const aiMessage =
       data?.candidates?.[0]?.content?.parts?.[0]?.text ||
       "Yo fam, I’m lost 😅";
@@ -61,7 +80,6 @@ Products JSON: ${JSON.stringify(products.slice(0, 10))}
       replyObj = { reply: aiMessage, products: [] };
     }
 
-    // ✅ Match products to WooCommerce
     if (replyObj.products && replyObj.products.length) {
       replyObj.products = replyObj.products
         .map((p) => {
@@ -90,3 +108,6 @@ Products JSON: ${JSON.stringify(products.slice(0, 10))}
   }
 });
 
+// ✅ Start server
+const PORT = process.env.PORT || 8080;
+app.listen(PORT, () => console.log(`✅ Xaviey.ai API running on port ${PORT}`));
